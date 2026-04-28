@@ -7,18 +7,22 @@
 # Determine the directory of this script
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Function to find a suitable Python 3.13 executable
+# Function to find a suitable Python executable
 find_python() {
-    # Prefer python3.13 if available
-    if command -v python3.13 >/dev/null 2>&1; then
+    # Prefer python3.14 if available
+    if command -v python3.14 >/dev/null 2>&1; then
+        echo "python3.14"
+    elif command -v python3.13 >/dev/null 2>&1; then
         echo "python3.13"
+    elif command -v python3.12 >/dev/null 2>&1; then
+        echo "python3.12"
     elif command -v python3 >/dev/null 2>&1; then
-        # Check if python3 is 3.13.x
+        # Check if python3 is 3.12-3.14.x
         PYVER=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
-        if [[ $PYVER == 3.13.* ]]; then
+        if [[ $PYVER == 3.14.* || $PYVER == 3.13.* || $PYVER == 3.12.* ]]; then
             echo "python3"
         else
-            echo "python3.13"
+            echo ""
         fi
     else
         echo ""  # No suitable Python found
@@ -27,7 +31,7 @@ find_python() {
 
 PYTHON=$(find_python)
 if [[ -z "$PYTHON" ]]; then
-    echo "Error: Python 3.13.x not found. Please install it before running this script." >&2
+    echo "Error: Python 3.12.x - 3.14.x not found. Please install it before running this script." >&2
     exit 1
 fi
 
