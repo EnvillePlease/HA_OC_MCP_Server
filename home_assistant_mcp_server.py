@@ -47,6 +47,11 @@ mcp = FastMCP("Home Assistant MCP Server")
 # Introspection / serialization
 # -----------------------------
 def _param_to_dict(param: inspect.Parameter) -> dict:
+    """Serialize a function parameter into a JSON-friendly dictionary.
+
+    This helper captures the parameter name, kind, default value,
+    and annotation for introspection output.
+    """
     return {
         "name": param.name,
         "kind": param.kind.name,
@@ -54,13 +59,24 @@ def _param_to_dict(param: inspect.Parameter) -> dict:
         "annotation": None if param.annotation is inspect.Parameter.empty else _safe_repr(param.annotation),
     }
 
+
 def _safe_repr(obj: Any) -> str:
+    """Return a safe string representation for an object.
+
+    If repr() fails, fall back to the object's type name.
+    """
     try:
         return repr(obj)
     except (TypeError, ValueError):
         return type(obj).__name__
 
+
 def _func_to_dict(name: str, func: Any) -> dict:
+    """Generate a metadata dictionary for a callable API member.
+
+    The returned dictionary includes the signature, documented parameters,
+    type hints, and the first line of the docstring.
+    """
     sig = None
     params = []
     try:
@@ -84,7 +100,12 @@ def _func_to_dict(name: str, func: Any) -> dict:
         "short_doc": short_doc,
     }
 
-def _extract_client_api(obj) -> list:
+
+def _extract_client_api(obj) -> list[dict]:
+    """Inspect a client object and return its public API description.
+
+    Public members are any attributes and callables that do not begin with an underscore.
+    """
     results = []
     for name, member in inspect.getmembers(obj):
         if name.startswith("_"):
@@ -94,7 +115,7 @@ def _extract_client_api(obj) -> list:
             try:
                 results.append(_func_to_dict(name, member))
             except (ValueError, TypeError, AttributeError):
-                # fallback to minimal entry
+                # fallback to minimal entry when introspection fails
                 results.append({"name": name, "signature": None, "params": [], "doc": ""})
             continue
         # Non-callable attribute: include type and short repr
@@ -110,7 +131,13 @@ def _extract_client_api(obj) -> list:
         })
     return results
 
+
 def _add_example_values(api_list: list[dict]) -> list[dict]:
+    """Populate function parameters with example values for generated documentation.
+
+    This helper does not change the actual API, only attaches sample inputs
+    to make the exported metadata easier to understand.
+    """
     for item in api_list:
         examples = []
         for p in item.get("params", []):
@@ -138,10 +165,11 @@ def _add_example_values(api_list: list[dict]) -> list[dict]:
         item["examples"] = examples
     return api_list
 
-# Ensure we do not leak sensitive environment values
-def _sanitize_export(data):
+
+# Ensure we do not leak sensitive environment values.
+def _sanitize_export(data: Any) -> Any:
+    """Redact configured secret values from JSON-serializable export data."""
     sensitive_keys = {"HOME_ASSISTANT_TOKEN", "TOKEN", "PASSWORD", "API_KEY"}
-    # Convert to JSON-safe structure and ensure no raw token values are present
     j = json.dumps(data, default=str)
     for key in sensitive_keys:
         secret = os.getenv(key)
@@ -150,17 +178,18 @@ def _sanitize_export(data):
     return json.loads(j)
 
 @mcp.tool()
-def get_client_api():
-    """Returns the Home Assistant client API description."""
-    # Build the API description
+def get_client_api() -> str:
+    """Return the Home Assistant client API description as a JSON string.
+
+    This MCP tool exposes metadata about the Home Assistant client and
+    its public callable members to MCP consumers.
+    """
     api = _extract_client_api(client)
     api = _add_example_values(api)
-
     safe_api = _sanitize_export(api)
+    return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
 
-    # Output JSON to stdout (MCP expects stdout)
-    return (json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False))
 
-# Start the server
+# Start the server when invoked directly.
 if __name__ == "__main__":
     mcp.run()
