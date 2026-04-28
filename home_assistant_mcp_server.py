@@ -189,6 +189,88 @@ def get_client_api() -> str:
     safe_api = _sanitize_export(api)
     return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
 
+@mcp.tool()
+def run_client_api_request(method: str, *args, **kwargs) -> Any:
+    """
+    Execute a specified request on the Home Assistant.
+
+    Use the api_dictionary_json object to look up what method to call on the client and execute it with the provided arguments.
+    Allows an LLM to execute requests such as turning on lights, setting temperature, or rebooting Home Assistant.
+    
+    Args:
+        method: The name of the method to call on the Home Assistant client
+        *args: Positional arguments to pass to the method
+        **kwargs: Keyword arguments to pass to the method
+    
+    Returns:
+        The result of the method execution
+    
+    Raises:
+        ValueError: If the method is not found in the API or is not callable
+        RuntimeError: If the method execution fails
+    """
+
+    # Get the API dictionary as JSON string
+    api_dictionary_json = get_client_api()
+    api_dict = json.loads(api_dictionary_json)
+    client_api = api_dict.get("client_api", [])
+
+    # Find the requested method in the API dictionary
+    method_info = None
+    for api_item in client_api:
+        if api_item.get("name") == method:
+            method_info = api_item
+            break
+
+    # Validate that the method exists in the client API
+    if method_info is None:
+        available_methods = [item.get("name") for item in client_api if item.get("name")]
+        raise ValueError(
+            f"Method '{method}' not found in Home Assistant client API. "
+            f"Available methods: {', '.join(available_methods)}"
+        )
+
+    # Verify the method is callable on the client
+    if not hasattr(client, method):
+        raise ValueError(f"Method '{method}' is not available on the client object")
+
+    client_method = getattr(client, method)
+    if not callable(client_method):
+        raise ValueError(f"'{method}' is not callable on the client object")
+
+    # Normalize MCP tool payload fields from the tool wrapper.
+    # Some MCP runtimes send explicit args/kwargs fields even when the Python
+    # method signature uses *args and **kwargs to model the tool input.
+    payload_args = kwargs.pop("args", None)
+    if payload_args is not None:
+        if payload_args is None:
+            payload_args = ()
+        if not isinstance(payload_args, (list, tuple)):
+            raise ValueError("The MCP tool 'args' field must be a list or tuple")
+        args = tuple(payload_args) + args
+
+    payload_kwargs = kwargs.pop("kwargs", None)
+    if payload_kwargs is not None:
+        if not isinstance(payload_kwargs, dict):
+            raise ValueError("The MCP tool 'kwargs' field must be a dict")
+        kwargs = {**payload_kwargs, **kwargs}
+
+    # Execute the method with provided arguments and return the result
+    try:
+        if args:
+            result = client_method(*args, **kwargs)
+        else:
+            result = client_method(**kwargs)
+        return result
+    except TypeError as e:
+        raise ValueError(
+            f"Invalid arguments for method '{method}': {str(e)}"
+        ) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Error executing method '{method}': {str(e)}"
+        ) from e
+
 
 # Start the server when invoked directly.
 if __name__ == "__main__":
