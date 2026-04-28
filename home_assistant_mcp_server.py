@@ -50,14 +50,14 @@ def _param_to_dict(param: inspect.Parameter) -> dict:
     return {
         "name": param.name,
         "kind": param.kind.name,
-        "default": None if param.default is inspect._empty else param.default,
-        "annotation": None if param.annotation is inspect._empty else _safe_repr(param.annotation),
+        "default": None if param.default is inspect.Parameter.empty else param.default,
+        "annotation": None if param.annotation is inspect.Parameter.empty else _safe_repr(param.annotation),
     }
 
 def _safe_repr(obj: Any) -> str:
     try:
         return repr(obj)
-    except Exception:
+    except (TypeError, ValueError):
         return type(obj).__name__
 
 def _func_to_dict(name: str, func: Any) -> dict:
@@ -71,7 +71,7 @@ def _func_to_dict(name: str, func: Any) -> dict:
     try:
         hints = get_type_hints(func)
         type_hints = {k: _safe_repr(v) for k, v in hints.items()}
-    except Exception:
+    except (AttributeError, NameError, TypeError):
         type_hints = {}
     doc = inspect.getdoc(func) or ""
     short_doc = doc.splitlines()[0] if doc else ""
@@ -93,14 +93,14 @@ def _extract_client_api(obj) -> list:
         if inspect.isroutine(member) or inspect.ismethod(member) or inspect.isfunction(member) or callable(member):
             try:
                 results.append(_func_to_dict(name, member))
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 # fallback to minimal entry
                 results.append({"name": name, "signature": None, "params": [], "doc": ""})
             continue
         # Non-callable attribute: include type and short repr
         try:
             value_repr = repr(member)
-        except Exception:
+        except (TypeError, ValueError):
             value_repr = "<unrepresentable>"
         results.append({
             "name": name,
@@ -116,6 +116,7 @@ def _add_example_values(api_list: list[dict]) -> list[dict]:
         for p in item.get("params", []):
             pname = p["name"].lower()
             ann = (p.get("annotation") or "").lower()
+            example: Any = "example_value"
             if "token" in pname or "password" in pname:
                 example = "<REDACTED>"
             elif "entity_id" in pname or "entity" in pname:
@@ -130,8 +131,6 @@ def _add_example_values(api_list: list[dict]) -> list[dict]:
                 example = True
             elif "int" in ann or "count" in pname or "number" in pname:
                 example = 1
-            else:
-                example = "example_value"
             # redact defaults that may contain tokens
             if isinstance(p.get("default"), str) and ("token" in pname or "password" in pname):
                 p["default"] = "<REDACTED>"
@@ -145,8 +144,9 @@ def _sanitize_export(data):
     # Convert to JSON-safe structure and ensure no raw token values are present
     j = json.dumps(data, default=str)
     for key in sensitive_keys:
-        if key in j:
-            j = j.replace(os.getenv(key, ""), "<REDACTED>")
+        secret = os.getenv(key)
+        if secret:
+            j = j.replace(secret, "<REDACTED>")
     return json.loads(j)
 
 @mcp.tool()
