@@ -21,18 +21,17 @@ For macOS and Linux users, a `setup.sh` script is provided to create a virtual e
 The `env.sample` file contains placeholder values.  Copy it to `.env` and replace the placeholders with your Home Assistant URL and long‑lived access token.  **Do not share that token with anyone else.**
 
 ## Usage
-**If the setup script hasn't been run, create your python virtual environment and install python package requirements
+If the setup script hasn't been run, create your python virtual environment and install python package requirements
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 ```
-
+Create a new `.env` file (you can do this by copying the env.sample in the repository), and put the URL of your **Home Assistant** instance and the long lived token.
 ```bash
-# Create a .env file with your Home Assistant credentials
-# HOME_ASSISTANT_URL=https://my.homeassistant.local
-# HOME_ASSISTANT_TOKEN=YOUR_LONG_LIVED_ACCESS_TOKEN
-
-# Run the server
+HOME_ASSISTANT_URL=https://my.homeassistant.local
+HOME_ASSISTANT_TOKEN=YOUR_LONG_LIVED_ACCESS_TOKEN
+```
+Finally run the server
+```bash
 python home_assistant_mcp_server.py
 ```
 
