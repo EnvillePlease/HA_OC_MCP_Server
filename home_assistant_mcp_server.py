@@ -35,17 +35,21 @@ TOKEN = os.getenv("HOME_ASSISTANT_TOKEN")
 
 # Validate that required environment variables are set
 if not URL or not TOKEN:
-    raise ValueError("HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN must be set in the environment")
+    raise ValueError(
+        "HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN must be set in the environment")
 
 # Initialize the Home Assistant API client
 client = Client(URL, TOKEN)
 
-# Create the MCP server instance (not used directly here but kept for integration)
+# Create the MCP server instance (not used directly here but kept for
+# integration)
 mcp = FastMCP("Home Assistant MCP Server")
 
 # -----------------------------
 # Introspection / serialization
 # -----------------------------
+
+
 def _param_to_dict(param: inspect.Parameter) -> dict:
     """Serialize a function parameter into a JSON-friendly dictionary.
 
@@ -56,7 +60,8 @@ def _param_to_dict(param: inspect.Parameter) -> dict:
         "name": param.name,
         "kind": param.kind.name,
         "default": None if param.default is inspect.Parameter.empty else param.default,
-        "annotation": None if param.annotation is inspect.Parameter.empty else _safe_repr(param.annotation),
+        "annotation": None if param.annotation is inspect.Parameter.empty else _safe_repr(
+            param.annotation),
     }
 
 
@@ -111,12 +116,14 @@ def _extract_client_api(obj) -> list[dict]:
         if name.startswith("_"):
             continue
         # Prefer callables/methods
-        if inspect.isroutine(member) or inspect.ismethod(member) or inspect.isfunction(member) or callable(member):
+        if inspect.isroutine(member) or inspect.ismethod(
+                member) or inspect.isfunction(member) or callable(member):
             try:
                 results.append(_func_to_dict(name, member))
             except (ValueError, TypeError, AttributeError):
                 # fallback to minimal entry when introspection fails
-                results.append({"name": name, "signature": None, "params": [], "doc": ""})
+                results.append(
+                    {"name": name, "signature": None, "params": [], "doc": ""})
             continue
         # Non-callable attribute: include type and short repr
         try:
@@ -159,7 +166,9 @@ def _add_example_values(api_list: list[dict]) -> list[dict]:
             elif "int" in ann or "count" in pname or "number" in pname:
                 example = 1
             # redact defaults that may contain tokens
-            if isinstance(p.get("default"), str) and ("token" in pname or "password" in pname):
+            if isinstance(
+                    p.get("default"), str) and (
+                    "token" in pname or "password" in pname):
                 p["default"] = "<REDACTED>"
             examples.append({p["name"]: example})
         item["examples"] = examples
@@ -177,6 +186,163 @@ def _sanitize_export(data: Any) -> Any:
             j = j.replace(secret, "<REDACTED>")
     return json.loads(j)
 
+
+def _build_device_catalogue_template(
+        area: str = None,
+        group_by_areas: bool = False) -> str:
+    """Build the Jinja template for device catalogue queries.
+
+    Args:
+        area: Specific area name to filter by, or None for all.
+        group_by_areas: If True, group devices by areas.
+
+    Returns:
+        The Jinja template string.
+    """
+    if group_by_areas:
+        # Template for grouping by areas
+        return """
+        {% set ns = namespace(area_map={}) %}
+
+        {% for area_id in areas() %}
+
+          {% set device_map = namespace(devices={}) %}
+
+          {% for device_id in area_devices(area_id) %}
+
+            {# Build entity dictionary for this device #}
+            {% set entity_map = namespace(entities={}) %}
+
+            {% for entity_id in device_entities(device_id) %}
+
+              {% set entity_map.entities = dict(
+                entity_map.entities,
+                **{
+                  entity_id: {
+                    "state": states(entity_id),
+                    "friendly_name": state_attr(entity_id, "friendly_name"),
+                    "icon": state_attr(entity_id, "icon"),
+                    "device_class": state_attr(entity_id, "device_class")
+                  }
+                }
+              ) %}
+
+            {% endfor %}
+
+            {# Add device and its entity data #}
+            {% set device_map.devices = dict(
+              device_map.devices,
+              **{
+                device_id: {
+                  "name": device_attr(device_id, "name"),
+                  "entities": entity_map.entities
+                }
+              }
+            ) %}
+
+          {% endfor %}
+
+          {# Add area and its devices #}
+          {% set ns.area_map = dict(
+            ns.area_map,
+            **{
+              area_id: {
+                "name": area_name(area_id),
+                "devices": device_map.devices
+              }
+            }
+          ) %}
+
+        {% endfor %}
+
+        {{ ns.area_map }}
+        """
+    elif area:
+        # Template for specific area
+        return """
+{% set id = area_id('""" + area + """') %}
+
+  {% set device_map = namespace(devices={}) %}
+
+  {% for device_id in area_devices(id) %}
+
+    {# Build entity dictionary for this device #}
+    {% set entity_map = namespace(entities={}) %}
+
+    {% for entity_id in device_entities(device_id) %}
+
+      {% set entity_map.entities = dict(
+        entity_map.entities,
+        **{
+          entity_id: {
+            "state": states(entity_id),
+            "friendly_name": state_attr(entity_id, "friendly_name"),
+           "icon": state_attr(entity_id, "icon"),
+            "device_class": state_attr(entity_id, "device_class")
+          }
+        }
+      ) %}
+
+    {% endfor %}
+
+    {# Add device and its entity data #}
+    {% set device_map.devices = dict(
+      device_map.devices,
+      **{
+        device_id: {
+          "name": device_attr(device_id, "name"),
+          "entities": entity_map.entities
+        }
+      }
+    ) %}
+
+  {% endfor %}
+
+{{ device_map.devices }}
+"""
+    else:
+        # Flat template for all devices
+        return """
+        {% set device_map = namespace(devices={}) %}
+
+        {% for device_id in devices() %}
+
+          {# Build entity dictionary for this device #}
+          {% set entity_map = namespace(entities={}) %}
+
+          {% for entity_id in device_entities(device_id) %}
+
+            {% set entity_map.entities = dict(
+              entity_map.entities,
+              **{
+                entity_id: {
+                  "state": states(entity_id),
+                  "friendly_name": state_attr(entity_id, "friendly_name"),
+                  "icon": state_attr(entity_id, "icon"),
+                  "device_class": state_attr(entity_id, "device_class")
+                }
+              }
+            ) %}
+
+          {% endfor %}
+
+          {# Add device and its entity data #}
+          {% set device_map.devices = dict(
+            device_map.devices,
+            **{
+              device_id: {
+                "name": device_attr(device_id, "name"),
+                "entities": entity_map.entities
+              }
+            }
+          ) %}
+
+        {% endfor %}
+
+        {{ device_map }}
+        """
+
+
 @mcp.tool()
 def get_client_api() -> str:
     """Return the Home Assistant client API description as a JSON string.
@@ -189,74 +355,23 @@ def get_client_api() -> str:
     safe_api = _sanitize_export(api)
     return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
 
+
 @mcp.tool()
 def get_device_catalogue_by_areas() -> str:
     """Return a catalogue of devices and entities grouped by area from Home Assistant.
     This tool provides a snapshot of the current devices and entities
     available in Home Assistant.
     """
-    device_catalogue_query = """
-    {% set ns = namespace(area_map={}) %}
-
-    {% for area_id in areas() %}
-
-      {% set device_map = namespace(devices={}) %}
-
-      {% for device_id in area_devices(area_id) %}
-
-        {# Build entity dictionary for this device #}
-        {% set entity_map = namespace(entities={}) %}
-
-        {% for entity_id in device_entities(device_id) %}
-
-          {% set entity_map.entities = dict(
-            entity_map.entities,
-            **{
-              entity_id: {
-                "state": states(entity_id),
-                "friendly_name": state_attr(entity_id, "friendly_name"),
-                "icon": state_attr(entity_id, "icon"),
-                "device_class": state_attr(entity_id, "device_class")
-              }
-            }
-          ) %}
-
-        {% endfor %}
-
-        {# Add device and its entity data #}
-        {% set device_map.devices = dict(
-          device_map.devices,
-          **{
-            device_id: {
-              "name": device_attr(device_id, "name"),
-              "entities": entity_map.entities
-            }
-          }
-        ) %}
-
-      {% endfor %}
-
-      {# Add area and its devices #}
-      {% set ns.area_map = dict(
-        ns.area_map,
-        **{
-          area_id: {
-            "name": area_name(area_id),
-            "devices": device_map.devices
-          }
-        }
-      ) %}
-
-    {% endfor %}
-
-    {{ ns.area_map }}
-    """
+    device_catalogue_query = _build_device_catalogue_template(
+        group_by_areas=True)
     try:
-        result = json.dumps(client.get_rendered_template(device_catalogue_query))
+        result = json.dumps(
+            client.get_rendered_template(device_catalogue_query))
         return result
     except Exception as e:
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
+
 
 @mcp.tool()
 def get_device_catalogue() -> str:
@@ -265,51 +380,15 @@ def get_device_catalogue() -> str:
     This tool provides a snapshot of the current devices and entities
     available in Home Assistant without area grouping.
     """
-    device_catalogue_query = """
-    {% set device_map = namespace(devices={}) %}
-
-    {% for device_id in devices() %}
-
-      {# Build entity dictionary for this device #}
-      {% set entity_map = namespace(entities={}) %}
-
-      {% for entity_id in device_entities(device_id) %}
-
-        {% set entity_map.entities = dict(
-          entity_map.entities,
-          **{
-            entity_id: {
-              "state": states(entity_id),
-              "friendly_name": state_attr(entity_id, "friendly_name"),
-              "icon": state_attr(entity_id, "icon"),
-              "device_class": state_attr(entity_id, "device_class")
-            }
-          }
-        ) %}
-
-      {% endfor %}
-
-      {# Add device and its entity data #}
-      {% set device_map.devices = dict(
-        device_map.devices,
-        **{
-          device_id: {
-            "name": device_attr(device_id, "name"),
-            "entities": entity_map.entities
-          }
-        }
-      ) %}
-
-    {% endfor %}
-
-    {{ device_map }}
-    """
+    device_catalogue_query = _build_device_catalogue_template()
     try:
-        result = json.dumps(client.get_rendered_template(device_catalogue_query))
+        result = json.dumps(
+            client.get_rendered_template(device_catalogue_query))
         return result
     except Exception as e:
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
+
 
 @mcp.tool()
 def get_device_catalogue_by_area(area: str) -> str:
@@ -318,50 +397,16 @@ def get_device_catalogue_by_area(area: str) -> str:
     This tool provides a snapshot of the current devices and entities
     available in a specified area within Home Assistant.
     """
-    device_catalogue_query = """
-    {{% set device_map = namespace(devices={{}}) %}}
-
-    {{% for device_id in area_devices('{area}') %}}
-
-      {{% set entity_map = namespace(entities={{}}) %}}
-
-      {{% for entity_id in device_entities(device_id) %}}
-
-        {{% set entity_map.entities = dict(
-          entity_map.entities,
-          **{{
-            entity_id: {{
-              "state": states(entity_id),
-              "friendly_name": state_attr(entity_id, "friendly"),
-              "icon": state_attr(entity_id, "icon"),
-              "device_class": state_attr(entity_id, "device_class")
-            }}
-            }}
-        ) %}}
-        
-        {{% endfor %}}
-        
-        {{% set device_map.devices = dict(
-          device_map.devices,
-          **{
-            device_id: {
-              "name": device_attr(device_id, "name"),
-              "entities": entity_map.entities
-            }
-          }
-        ) %}}
-        
-    {{% endfor %}}
-    
-    {{ device_map }}
-    """
-    
+    device_catalogue_query = _build_device_catalogue_template(area=area)
     try:
-        result = json.dumps(client.get_rendered_template(device_catalogue_query))
+        result = json.dumps(
+            client.get_rendered_template(device_catalogue_query))
         return result
     except Exception as e:
-        print(f"Error occurred while fetching device catalogue for area '{area}': {e}")
+        print(
+            f"Error occurred while fetching device catalogue for area '{area}': {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
+
 
 # Start the server when invoked directly.
 if __name__ == "__main__":
