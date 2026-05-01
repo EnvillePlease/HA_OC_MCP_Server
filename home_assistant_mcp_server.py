@@ -376,9 +376,9 @@ def get_device_catalogue_by_areas() -> str:
 
 @mcp.tool()
 def get_device_catalogue() -> str:
-    """Return a flat catalogue of devices and entities from Home Assistant.
+    """Return a flat catalogue of all devices and entities from Home Assistant.
 
-    This tool provides a snapshot of the current devices and entities
+    This tool provides a snapshot of all the current devices and entities
     available in Home Assistant without area grouping.
     """
     device_catalogue_query = _build_device_catalogue_template()
