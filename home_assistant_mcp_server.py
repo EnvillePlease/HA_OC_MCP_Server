@@ -190,7 +190,7 @@ def get_client_api() -> str:
     return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
 
 @mcp.tool()
-def get_device_catalogue() -> str:
+def get_device_catalogue_by_areas() -> str:
     """Return a catalogue of devices and entities grouped by area from Home Assistant.
     This tool provides a snapshot of the current devices and entities
     available in Home Assistant.
@@ -256,6 +256,111 @@ def get_device_catalogue() -> str:
         return result
     except Exception as e:
         print(f"Error occurred while fetching device catalogue: {e}")
+        return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def get_device_catalogue() -> str:
+    """Return a flat catalogue of devices and entities from Home Assistant.
+
+    This tool provides a snapshot of the current devices and entities
+    available in Home Assistant without area grouping.
+    """
+    device_catalogue_query = """
+    {% set device_map = namespace(devices={}) %}
+
+    {% for device_id in devices() %}
+
+      {# Build entity dictionary for this device #}
+      {% set entity_map = namespace(entities={}) %}
+
+      {% for entity_id in device_entities(device_id) %}
+
+        {% set entity_map.entities = dict(
+          entity_map.entities,
+          **{
+            entity_id: {
+              "state": states(entity_id),
+              "friendly_name": state_attr(entity_id, "friendly_name"),
+              "icon": state_attr(entity_id, "icon"),
+              "device_class": state_attr(entity_id, "device_class")
+            }
+          }
+        ) %}
+
+      {% endfor %}
+
+      {# Add device and its entity data #}
+      {% set device_map.devices = dict(
+        device_map.devices,
+        **{
+          device_id: {
+            "name": device_attr(device_id, "name"),
+            "entities": entity_map.entities
+          }
+        }
+      ) %}
+
+    {% endfor %}
+
+    {{ device_map }}
+    """
+    try:
+        result = json.dumps(client.get_rendered_template(device_catalogue_query))
+        return result
+    except Exception as e:
+        print(f"Error occurred while fetching device catalogue: {e}")
+        return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
+
+@mcp.tool()
+def get_device_catalogue_by_area(area: str) -> str:
+    """Return a catalogue of devices and entities for a specific area from Home Assistant.
+
+    This tool provides a snapshot of the current devices and entities
+    available in a specified area within Home Assistant.
+    """
+    device_catalogue_query = """
+    {{% set device_map = namespace(devices={{}}) %}}
+
+    {{% for device_id in area_devices('{area}') %}}
+
+      {{% set entity_map = namespace(entities={{}}) %}}
+
+      {{% for entity_id in device_entities(device_id) %}}
+
+        {{% set entity_map.entities = dict(
+          entity_map.entities,
+          **{{
+            entity_id: {{
+              "state": states(entity_id),
+              "friendly_name": state_attr(entity_id, "friendly"),
+              "icon": state_attr(entity_id, "icon"),
+              "device_class": state_attr(entity_id, "device_class")
+            }}
+            }}
+        ) %}}
+        
+        {{% endfor %}}
+        
+        {{% set device_map.devices = dict(
+          device_map.devices,
+          **{
+            device_id: {
+              "name": device_attr(device_id, "name"),
+              "entities": entity_map.entities
+            }
+          }
+        ) %}}
+        
+    {{% endfor %}}
+    
+    {{ device_map }}
+    """
+    
+    try:
+        result = json.dumps(client.get_rendered_template(device_catalogue_query))
+        return result
+    except Exception as e:
+        print(f"Error occurred while fetching device catalogue for area '{area}': {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
 
 # Start the server when invoked directly.
