@@ -358,8 +358,9 @@ def get_client_api() -> str:
 
 @mcp.tool()
 def get_device_catalogue_by_areas() -> str:
-    """Return a catalogue of devices and entities grouped by area from Home Assistant.
-    This tool provides a snapshot of the current devices and entities
+    """Return a catalogue of all devices and entities grouped by area from Home Assistant.
+    
+    This tool provides a snapshot of all the current devices and entities
     available in Home Assistant.
     """
     device_catalogue_query = _build_device_catalogue_template(
@@ -392,7 +393,7 @@ def get_device_catalogue() -> str:
 
 @mcp.tool()
 def get_device_catalogue_by_area(area: str) -> str:
-    """Return a catalogue of devices and entities for a specific area from Home Assistant.
+    """Return a catalogue of devices and entities filtered by a specific area from Home Assistant.
 
     This tool provides a snapshot of the current devices and entities
     available in a specified area within Home Assistant.
