@@ -17,7 +17,7 @@ import os
 import sys
 import json
 import inspect
-from typing import get_type_hints, Any
+from typing import Any, Optional, get_type_hints
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from homeassistant_api import Client
@@ -183,7 +183,7 @@ def _sanitize_export(data: Any) -> Any:
 
 
 def _build_device_catalogue_template(
-        area: str = None,
+        area: Optional[str] = None,
         group_by_areas: bool = False) -> str:
     """Build the Jinja template for device catalogue queries.
 
@@ -339,7 +339,7 @@ def _build_device_catalogue_template(
 
 @mcp.tool()
 def get_client_api() -> str:
-    """Return the Home Assistant client API description as a JSON string.
+    """Returns the Home Assistant client API description as a JSON string.
 
     This MCP tool exposes metadata about the Home Assistant client and
     its public callable members to MCP consumers.
@@ -350,7 +350,7 @@ def get_client_api() -> str:
     return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
 
 @mcp.tool()
-def get_device_catalogue_by_areas() -> str:
+def get_device_catalogue_grouped_by_areas() -> str:
     """Return a catalogue of all devices and entities grouped by area from Home Assistant.
     
     This tool provides a snapshot of all the current devices and entities
