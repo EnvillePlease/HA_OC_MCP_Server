@@ -407,5 +407,4 @@ def get_device_catalogue_by_area(area: str) -> str:
 
 # Start the server when invoked directly.
 if __name__ == "__main__":
-    # mcp.run()
-    print(get_device_catalogue())
+    mcp.run()
