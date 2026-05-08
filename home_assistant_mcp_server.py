@@ -14,6 +14,7 @@ Produces a JSON description of the client's methods on stdout for MCP consumptio
 """
 
 import os
+import io
 import sys
 import json
 import inspect
@@ -26,8 +27,9 @@ from homeassistant_api import Client
 load_dotenv()
 
 # Ensure unbuffered output and no encoding issues
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
-sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf8', buffering=1)
+old_stdout, old_stderr = sys.stdout, sys.stderr
+sys.stdout = io.TextIOWrapper(old_stdout.buffer, encoding="utf8", line_buffering=True)
+sys.stderr = io.TextIOWrapper(old_stderr.buffer, encoding="utf8", line_buffering=True)
 
 # Retrieve Home Assistant URL and token from environment variables
 URL = os.getenv("HOME_ASSISTANT_URL")
