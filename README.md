@@ -1,6 +1,6 @@
 # Home Assistant MCP Server
 
-This repository contains a minimal **MCP (Micro‑service Communication Protocol)** server that connects to a Home Assistant instance via the `homeassistant_api` Python client.  The server introspects the client’s public API and emits a JSON description of the available methods, parameters, and documentation.  The JSON is written to **stdout** so that an MCP‑compatible client can consume it and expose the Home Assistant functionality as a remote service.
+This repository contains a minimal **MCP (Model Context Protocol)** server that connects to a Home Assistant instance via the `homeassistant_api` Python client.  The server introspects the client’s public API and emits a JSON description of the available methods, parameters, and documentation.  The JSON is written to **stdout** so that an MCP‑compatible client can consume it and expose the Home Assistant functionality as a remote service.
 
 ## Features
 - Loads configuration from a `.env` file (or environment variables).
