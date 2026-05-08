@@ -365,7 +365,7 @@ def get_device_catalogue_grouped_by_areas() -> str:
         result = json.dumps(
             client.get_rendered_template(device_catalogue_query))
         return result
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
 
@@ -381,7 +381,7 @@ def get_device_catalogue() -> str:
         result = json.dumps(
             client.get_rendered_template(device_catalogue_query))
         return result
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
 
@@ -397,7 +397,7 @@ def get_device_catalogue_by_area(area: str) -> str:
         result = json.dumps(
             client.get_rendered_template(device_catalogue_query))
         return result
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(
             f"Error occurred while fetching device catalogue for area '{area}': {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
