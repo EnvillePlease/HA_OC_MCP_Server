@@ -6,7 +6,7 @@
 # Author: EnvillePlease
 # Version: 1.0
 # Created: 28 April 2026
-# Modified: 28 April 2026
+# Modified: 08 May 2026
 # ========================================
 
 """MCP server for Home Assistant integration using homeassistant_api client.
@@ -49,7 +49,6 @@ mcp = FastMCP("Home Assistant MCP Server")
 # Introspection / serialization
 # -----------------------------
 
-
 def _param_to_dict(param: inspect.Parameter) -> dict:
     """Serialize a function parameter into a JSON-friendly dictionary.
 
@@ -74,7 +73,6 @@ def _safe_repr(obj: Any) -> str:
         return repr(obj)
     except (TypeError, ValueError):
         return type(obj).__name__
-
 
 def _func_to_dict(name: str, func: Any) -> dict:
     """Generate a metadata dictionary for a callable API member.
@@ -104,7 +102,6 @@ def _func_to_dict(name: str, func: Any) -> dict:
         "doc": doc,
         "short_doc": short_doc,
     }
-
 
 def _extract_client_api(obj) -> list[dict]:
     """Inspect a client object and return its public API description.
@@ -137,7 +134,6 @@ def _extract_client_api(obj) -> list[dict]:
             "doc": (inspect.getdoc(member) or "").splitlines()[:3]
         })
     return results
-
 
 def _add_example_values(api_list: list[dict]) -> list[dict]:
     """Populate function parameters with example values for generated documentation.
@@ -173,7 +169,6 @@ def _add_example_values(api_list: list[dict]) -> list[dict]:
             examples.append({p["name"]: example})
         item["examples"] = examples
     return api_list
-
 
 # Ensure we do not leak sensitive environment values.
 def _sanitize_export(data: Any) -> Any:
@@ -342,7 +337,6 @@ def _build_device_catalogue_template(
         {{ device_map }}
         """
 
-
 @mcp.tool()
 def get_client_api() -> str:
     """Return the Home Assistant client API description as a JSON string.
@@ -354,7 +348,6 @@ def get_client_api() -> str:
     api = _add_example_values(api)
     safe_api = _sanitize_export(api)
     return json.dumps({"client_api": safe_api}, indent=2, ensure_ascii=False)
-
 
 @mcp.tool()
 def get_device_catalogue_by_areas() -> str:
@@ -373,7 +366,6 @@ def get_device_catalogue_by_areas() -> str:
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
 
-
 @mcp.tool()
 def get_device_catalogue() -> str:
     """Return a flat catalogue of all devices and entities from Home Assistant.
@@ -389,7 +381,6 @@ def get_device_catalogue() -> str:
     except Exception as e:
         print(f"Error occurred while fetching device catalogue: {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
-
 
 @mcp.tool()
 def get_device_catalogue_by_area(area: str) -> str:
@@ -407,7 +398,6 @@ def get_device_catalogue_by_area(area: str) -> str:
         print(
             f"Error occurred while fetching device catalogue for area '{area}': {e}")
         return json.dumps({"error": str(e)}, indent=2, ensure_ascii=False)
-
 
 # Start the server when invoked directly.
 if __name__ == "__main__":
