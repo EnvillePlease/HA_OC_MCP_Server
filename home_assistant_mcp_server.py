@@ -252,7 +252,8 @@ def _build_device_catalogue_template(
 
         {{ ns.area_map }}
         """
-    elif area:
+
+    if group_by_areas and area:
         # Template for specific area
         return """
         {% set id = area_id('""" + area + """') %}
@@ -295,47 +296,47 @@ def _build_device_catalogue_template(
 
         {{ device_map.devices }}
         """
-    else:
-        # Flat template for all devices
-        return """
-        {% set device_map = namespace(devices={}) %}
 
-        {% for device_id in devices() %}
+    # Flat template for all devices
+    return """
+    {% set device_map = namespace(devices={}) %}
 
-          {# Build entity dictionary for this device #}
-          {% set entity_map = namespace(entities={}) %}
+    {% for device_id in devices() %}
 
-          {% for entity_id in device_entities(device_id) %}
+      {# Build entity dictionary for this device #}
+      {% set entity_map = namespace(entities={}) %}
 
-            {% set entity_map.entities = dict(
-              entity_map.entities,
-              **{
-                entity_id: {
-                  "state": states(entity_id),
-                  "friendly_name": state_attr(entity_id, "friendly_name"),
-                  "icon": state_attr(entity_id, "icon"),
-                  "device_class": state_attr(entity_id, "device_class")
-                }
-              }
-            ) %}
+      {% for entity_id in device_entities(device_id) %}
 
-          {% endfor %}
-
-          {# Add device and its entity data #}
-          {% set device_map.devices = dict(
-            device_map.devices,
-            **{
-              device_id: {
-                "name": device_attr(device_id, "name"),
-                "entities": entity_map.entities
+        {% set entity_map.entities = dict(
+          entity_map.entities,
+          **{
+            entity_id: {
+              "state": states(entity_id),
+              "friendly_name": state_attr(entity_id, "friendly_name"),
+              "icon": state_attr(entity_id, "icon"),
+              "device_class": state_attr(entity_id, "device_class")
               }
             }
-          ) %}
+        ) %}
 
-        {% endfor %}
+      {% endfor %}
 
-        {{ device_map }}
-        """
+      {# Add device and its entity data #}
+      {% set device_map.devices = dict(
+        device_map.devices,
+        **{
+          device_id: {
+          "name": device_attr(device_id, "name"),
+          "entities": entity_map.entities
+          }
+        }
+      ) %}
+
+    {% endfor %}
+
+    {{ device_map }}
+    """
 
 @mcp.tool()
 def get_client_api() -> str:
