@@ -255,46 +255,46 @@ def _build_device_catalogue_template(
     elif area:
         # Template for specific area
         return """
-{% set id = area_id('""" + area + """') %}
+        {% set id = area_id('""" + area + """') %}
 
-  {% set device_map = namespace(devices={}) %}
+        {% set device_map = namespace(devices={}) %}
 
-  {% for device_id in area_devices(id) %}
+        {% for device_id in area_devices(id) %}
 
-    {# Build entity dictionary for this device #}
-    {% set entity_map = namespace(entities={}) %}
+            {# Build entity dictionary for this device #}
+            {% set entity_map = namespace(entities={}) %}
 
-    {% for entity_id in device_entities(device_id) %}
+            {% for entity_id in device_entities(device_id) %}
 
-      {% set entity_map.entities = dict(
-        entity_map.entities,
-        **{
-          entity_id: {
-            "state": states(entity_id),
-            "friendly_name": state_attr(entity_id, "friendly_name"),
-           "icon": state_attr(entity_id, "icon"),
-            "device_class": state_attr(entity_id, "device_class")
-          }
-        }
-      ) %}
+            {% set entity_map.entities = dict(
+                entity_map.entities,
+                **{
+                entity_id: {
+                    "state": states(entity_id),
+                    "friendly_name": state_attr(entity_id, "friendly_name"),
+                "icon": state_attr(entity_id, "icon"),
+                 "device_class": state_attr(entity_id, "device_class")
+                }
+                }
+            ) %}
 
-    {% endfor %}
+            {% endfor %}
 
-    {# Add device and its entity data #}
-    {% set device_map.devices = dict(
-      device_map.devices,
-      **{
-        device_id: {
-          "name": device_attr(device_id, "name"),
-          "entities": entity_map.entities
-        }
-      }
-    ) %}
+            {# Add device and its entity data #}
+            {% set device_map.devices = dict(
+            device_map.devices,
+            **{
+                device_id: {
+                "name": device_attr(device_id, "name"),
+                "entities": entity_map.entities
+                }
+            }
+            ) %}
 
-  {% endfor %}
+        {% endfor %}
 
-{{ device_map.devices }}
-"""
+        {{ device_map.devices }}
+        """
     else:
         # Flat template for all devices
         return """
